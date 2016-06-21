@@ -84,11 +84,11 @@ def playFlappyBird():
 
             nextObservation = preprocess(nextObservation)
             brain.setPerception(nextObservation,action,reward,terminal)
-            '''
-            if(flappyBirdWrap.getSignal() == 2):
+            
+            if(gameSocket.getSignal() == 2):
                 print "Stop game!"
                 break  
-            '''  
+             
             if(terminal):
                 break    
     #clean everything and wait again
