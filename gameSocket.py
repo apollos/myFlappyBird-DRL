@@ -11,9 +11,10 @@ srcSock = 0
 
 threads = []
 ctrlStat = 0
-mutexs = []
-gameDataQ = None
-gameMutexIdx = None
+mutexLock = None
+
+gameDataQRcv = None
+gameDataQSnd = None
 
 lastScore = 0
 olddataLen = 0
@@ -25,11 +26,10 @@ def startServer():
     #global ctlSock
     
     global threads
-    global mutexs
-    global gameDataQ
+    global mutexLock
+    global gameDataQRcv, gameDataQSnd
     
     global lastScore
-    global gameMutexIdx
 
     mySock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)  
     SOCKNUM = 2
@@ -45,7 +45,8 @@ def startServer():
     print "Control Channel Connected by", dst_addr
     '''
     lastScore = 0
-    gameDataQ = Queue.Queue(maxsize = 128) #FIFO 
+    gameDataQRcv = Queue.Queue(maxsize = 128) #FIFO 
+    gameDataQSnd = Queue.Queue(maxsize = 128)
     '''
     t1 = threading.Thread(target=ctrlThread)
     threads.append(t1)
@@ -54,14 +55,16 @@ def startServer():
     t1.setDaemon(True)
     t1.start()
     '''
-
-    t2 = threading.Thread(target=gameDataThread)
+    mutexLock = threading.Lock()
+    t2 = threading.Thread(target=gameDataRcvThread)
     threads.append(t2)
-    mutex2 = threading.Lock()
-    mutexs.append(mutex2)
-    gameMutexIdx = len(mutexs)-1
     t2.setDaemon(True)
     t2.start()
+
+    t21 = threading.Thread(target=gameDataSndThread)
+    threads.append(t21)
+    t21.setDaemon(True)
+    t21.start()
 
     t3 = threading.Thread(target=showInforThread)
     threads.append(t3)    
@@ -77,8 +80,8 @@ def closeServer():
     
     global threads
     global ctrlStat
-    global mutexs
-    global gameDataQ
+    global mutexLock
+    global gameDataQRcv, gameDataQSnd
     
     srcSock.close()  
     mySock.close()  
@@ -86,10 +89,13 @@ def closeServer():
     
     threads = []
     ctrlStat = 0
-    mutexs = []
-    if(gameDataQ):
-        gameDataQ.clear()
-        gameDataQ = None
+    mutexLock = None
+    if(gameDataQRcv):
+        gameDataQRcv.clear()
+        gameDataQRcv = None
+    if(gameDataQSnd):
+        gameDataQSnd.clear()
+        gameDataQSnd = None
     
     return 0
 
@@ -151,108 +157,89 @@ def ctrlThread():
         else:
             print "CTRL Socket RCV unknowed command %d" % data
 '''
-def gameDataThread():
+def gameDataRcvThread():
     global srcSock
-    global mutexs
-    global gameDataQ
+    global gameDataQRcv
     global ctrlStat
-    global gameMutexIdx
-    if gameMutexIdx is None:
-        print "Mutex Array of Game Data Error!"
-        return 1
-    mutex = mutexs[gameMutexIdx]
+    global mutexLock
+    
     if srcSock == 0:
         print "Data Socket Error!"
         return 1
     while True: 
         stringData = rcvDataFromSocket(srcSock, 16)
         if len(stringData) == 0:#recv error
-            if mutex.acquire(1):
+            if mutexLock.acquire(1):
                 ctrlStat = 2
-                mutex.release()
+                mutexLock.release()
             break
         dataLen = int(stringData)
         stringData = rcvDataFromSocket(srcSock, dataLen)
         if len(stringData) == 0:#recv error
-            if mutex.acquire(1):
+            if mutexLock.acquire(1):
                 ctrlStat = 2
-                mutex.release()
+                mutexLock.release()
             break
         unpackStr = '!f?%ds' % (dataLen - 5)
         reward, terminal, image_data = struct.unpack(unpackStr, stringData)
         image_data = pickle.loads(image_data)          
         #print "RCV Len %d" % dataLen
-        #if mutex.acquire(1):
-        gameDataQ.put((reward, terminal, image_data))
-        #    mutex.release()
+        gameDataQRcv.put((reward, terminal, image_data))
+
+def gameDataSndThread():
+    global srcSock
+    global gameDataQSnd
+    global ctrlStat
+    global mutexLock
+
+    if srcSock == 0:
+        print "Data Socket Error!"
+        return 1
+    while True: 
+        input_actions = gameDataQSnd.get(True, 0.5)        
+        if (sndDataFromSocket(srcSock, str(input_actions), 16) == 0):
+            print "Snd Error!"
+            if mutexLock.acquire(1):
+                ctrlStat = 2
+                mutexLock.release()
+                break
+        
 
 def showInforThread():
     while True:
-        if gameDataQ:
-            if (gameDataQ.qsize() != 0):
-                print gameDataQ.qsize()
+        if gameDataQRcv:
+            if (gameDataQRcv.qsize() != 0):
+                print gameDataQRcv.qsize()
         time.sleep(10) #10 seconds
 
 def getSignal():
     global ctrlStat
-    global mutexs
-    mutex = mutexs[0]
+    global mutexLock
+
     data = 0 #unknown
-    if mutex.acquire(0):
+    if mutexLock.acquire(0):
         data = ctrlStat 
-        mutex.release()
+        mutexLock.release()
     return data
 
 
 def frame_step(input_actions):
     
-    global mutexs
-    global gameDataQ
-       
+    global gameDataQRcv, gameDataQSnd
     global olddataLen, rcvCount
-    global gameMutexIdx
 
-    if gameMutexIdx is None:
-        print "Mutex Array of Game Data Error!"
-        return None, None, None, True
     #Send action to remote and get score, crash, image from remote
     #print str(input_actions)
-    if (sndDataFromSocket(srcSock, str(input_actions), 16) == 0):
-        print "Snd Error!"
-        return None, None, None, True    
-    # check for score, comparing with last, if >1, reward = newScore - oldScore
-    mutex = mutexs[gameMutexIdx]
+    gameDataQSnd.put(input_actions)    
+
     #multiple thread may cause the trainig async, I need consider the potential issue later
-    # check if crash here, if crash, terminal = True and reward = -1
-    #if mutex.acquire(1):    
     try:
-        #print gameDataQ.qsize()
-        (reward, terminal, image_data) = gameDataQ.get(True, 0.5)
+        #print gameDataQRcv.qsize()
+        (reward, terminal, image_data) = gameDataQRcv.get(True, 0.5)
     except Queue.Empty:
         #generally, shall be game over now
-        return None, None, None, False
-        
-    ##################################################################
-    '''
-    stringData = rcvDataFromSocket(srcSock, 16)
-    if len(stringData) == 0:#recv error
-        print "Rcv Error!"
-        return None, None, None, True
-    dataLen = int(stringData)
-    if olddataLen != dataLen:        
-        print "Old Len %d, new Len %d" % (olddataLen, dataLen)
-        olddataLen = dataLen
-    stringData = rcvDataFromSocket(srcSock, dataLen)
-    if len(stringData) == 0:#recv error
-        print "Rcv Error!"
-        return None, None, None, True
-    unpackStr = '!f?%ds' % (dataLen - 5)
-    reward, terminal, image_data = struct.unpack(unpackStr, stringData)
-    image_data = pickle.loads(image_data) 
-    rcvCount += 1
-    #print "Rcv %d" %(rcvCount)   
-    '''
-    ##################################################################
+        return None, None, None, False        
+    
     #    mutex.release()    
     #print "c t d", "[",reward,"]", "[",terminal,"]", "[",image_data,"]", 
     return image_data, reward, terminal, False

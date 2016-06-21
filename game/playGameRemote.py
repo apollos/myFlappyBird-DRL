@@ -10,8 +10,12 @@ import wrapped_flappy_bird as game
 import socket
 import pickle
 import struct
+import Queue
+import threading
 
 robotSock = 0
+gameDataQSnd = None
+threads = []
 
 def sndDataToRobot(sndSock, data, datalen):
     
@@ -21,7 +25,6 @@ def sndDataToRobot(sndSock, data, datalen):
     except socket.error, e:
             # Something else happened, handle error, exit, etc.
         print e
-
     return sndBytes
 
 def compressImg(observation):
@@ -30,18 +33,25 @@ def compressImg(observation):
     ret, observation = cv2.threshold(observation,1,255,cv2.THRESH_BINARY)
     return observation 
 
-sndCount = 0
+#sndCount = 0
 def saveGameStatus(observation, reward, terminal):
-    global robotSock, sndCount
-    if(robotSock):
-        image_data_pickle = pickle.dumps(observation)
-        packStr = '!f?%ds' % len(image_data_pickle)
-        sndStr = struct.pack(packStr, reward, terminal, image_data_pickle)
-        if(sndDataToRobot(robotSock, len(sndStr), 16) != 16):
-            return
-        sndDataToRobot(robotSock, sndStr, len(sndStr))
-        sndCount +=1
-        #print "Snd %d" % (sndCount)
+    global gameDataQSnd
+    gameDataQSnd.put((observation, reward, terminal))
+
+def sndDataToRobotThread():
+    global robotSock, gameDataQSnd
+    while True:
+        if(robotSock):
+            (observation, reward, terminal) = gameDataQSnd.get(True, 0.5)
+            image_data_pickle = pickle.dumps(observation)
+            packStr = '!f?%ds' % len(image_data_pickle)
+            sndStr = struct.pack(packStr, reward, terminal, image_data_pickle)
+            if(sndDataToRobot(robotSock, len(sndStr), 16) != 16):
+                return
+
+            sndDataToRobot(robotSock, sndStr, len(sndStr))
+            #sndCount +=1
+            #print "Snd %d" % (sndCount)
 
 def cleanConnect():
     global robotSock
@@ -83,16 +93,23 @@ def rcvDataFromRobot(rcvSock, dataLen):
             else:
                 # got a message do something :)
                 DataValue += packet
+    #print DataValue
     return DataValue, flag
 
 def main(argv):
+    global gameDataQSnd
     if len(argv) != 3:
         print ("Usage: python playGameRemote.py [<target ip> <port>]")
         exit(-1)
     host = argv[1]
     port = argv[2]
+    gameDataQSnd = Queue.Queue(maxsize = 128)
     connectWithRobot(host, port)
     flappyBird = game.GameState()    
+    t1 = threading.Thread(target=sndDataToRobotThread)
+    threads.append(t1)
+    t1.setDaemon(True)
+    t1.start()
     while True: 
         #Play Flappy Bird Game  
         rcvData, flag = rcvDataFromRobot(robotSock, 16)
