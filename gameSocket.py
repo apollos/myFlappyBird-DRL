@@ -196,7 +196,7 @@ def gameDataSndThread():
         print "Data Socket Error!"
         return 1
     while True: 
-        input_actions = gameDataQSnd.get(True, 0.5)        
+        input_actions = gameDataQSnd.get(True, 5)        
         if (sndDataFromSocket(srcSock, str(input_actions), 16) == 0):
             print "Snd Error!"
             if mutexLock.acquire(1):
@@ -235,7 +235,7 @@ def frame_step(input_actions):
     #multiple thread may cause the trainig async, I need consider the potential issue later
     try:
         #print gameDataQRcv.qsize()
-        (reward, terminal, image_data) = gameDataQRcv.get(True, 0.5)
+        (reward, terminal, image_data) = gameDataQRcv.get(True, 5)
     except Queue.Empty:
         #generally, shall be game over now
         return None, None, None, False        

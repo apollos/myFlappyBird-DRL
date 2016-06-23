@@ -42,7 +42,7 @@ def sndDataToRobotThread():
     global robotSock, gameDataQSnd
     while True:
         if(robotSock):
-            (observation, reward, terminal) = gameDataQSnd.get(True, 0.5)
+            (observation, reward, terminal) = gameDataQSnd.get(True, 5)
             image_data_pickle = pickle.dumps(observation)
             packStr = '!f?%ds' % len(image_data_pickle)
             sndStr = struct.pack(packStr, reward, terminal, image_data_pickle)

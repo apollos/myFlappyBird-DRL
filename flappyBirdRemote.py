@@ -30,7 +30,7 @@ def playFlappyBird():
     actions = 2
     brain = BrainDQN(actions)
     #play the game forever
-    
+    quitFlag = False
     gameSocket.startServer()
     while True: 
         #init Flappy Bird Game
@@ -67,7 +67,7 @@ def playFlappyBird():
         if observation is None:
             #something wrong
             print "observation is None"
-            continue
+            return
         
         brain.setInitState(observation)
 
@@ -87,6 +87,7 @@ def playFlappyBird():
             
             if(gameSocket.getSignal() == 2):
                 print "Stop game!"
+                quitFlag = True
                 break  
              
             if(terminal):
@@ -98,6 +99,7 @@ def playFlappyBird():
 
 def main():
     playFlappyBird()
+    gameSocket.closeServer()
 
 if __name__ == '__main__':
     main()
