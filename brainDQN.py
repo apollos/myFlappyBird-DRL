@@ -125,10 +125,10 @@ class BrainDQN:
             })
 
         # save network every 100000 iteration
-        '''
+        
         if self.timeStep % 10000 == 0:
             self.saver.save(self.session, 'saved_networks/' + 'network' + '-dqn', global_step = self.timeStep)
-        '''
+        
         if self.timeStep % UPDATE_TIME == 0:
             self.copyTargetQNetwork()
 

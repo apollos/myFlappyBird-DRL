@@ -82,7 +82,7 @@ class GameState:
                 self.score += 1
                 SOUNDS['point'].play()
                 reward = 1
-                print "Score: %d" % self.score
+                #print "Score: %d" % self.score
 
         # playerIndex basex change
         if (self.loopIter + 1) % 3 == 0:
@@ -123,7 +123,7 @@ class GameState:
             SOUNDS['hit'].play()
             SOUNDS['die'].play()
             terminal = True
-            print "Last Score: %d" % self.score
+            #print "Last Score: %d" % self.score
             self.__init__()
             reward = -1
 
@@ -136,7 +136,7 @@ class GameState:
 
         SCREEN.blit(IMAGES['base'], (self.basex, BASEY))
         # print score so player overlaps the score
-        #showScore(self.score)        
+        showScore(self.score)        
            
         SCREEN.blit(IMAGES['player'][self.playerIndex],
                     (self.playerx, self.playery))
