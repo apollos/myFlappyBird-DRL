@@ -36,6 +36,7 @@ class GameState:
         self.playery = int((SCREENHEIGHT - PLAYER_HEIGHT) / 2)
         self.basex = 0
         self.baseShift = IMAGES['base'].get_width() - BACKGROUND_WIDTH
+        self.countWrite = 0
 
         newPipe1 = getRandomPipe()
         newPipe2 = getRandomPipe()
@@ -145,7 +146,15 @@ class GameState:
         pygame.display.update()
         FPSCLOCK.tick(FPS)
         #print self.upperPipes[0]['y'] + PIPE_HEIGHT - int(BASEY * 0.2)
-        return image_data, reward, terminal
+        screen_cap = pygame.image.tostring(pygame.display.get_surface(), 'RGB')
+        '''
+        abc = pygame.image.fromstring(screen_cap, (288,512), 'RGB')
+        if self.countWrite <=4:
+            filename = "pic%04d.jpeg" % self.countWrite
+            self.countWrite +=1
+            pygame.image.save(abc, filename)
+        '''
+        return image_data, reward, terminal, screen_cap
 
 def getRandomPipe():
     """returns a randomly generated pipe"""

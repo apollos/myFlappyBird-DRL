@@ -4,6 +4,8 @@ import threading
 import time
 import Queue
 import struct, pickle
+import cv2, numpy
+import cv2.cv as cv
 
 mySock = 0
 srcSock = 0
@@ -19,8 +21,9 @@ gameDataQSnd = None
 lastScore = 0
 olddataLen = 0
 rcvCount =0
+imgSnd = cv.CreateImageHeader((288, 512), cv.IPL_DEPTH_8U, 3)  
 
-def startServer():
+def startServer(sndOnly):
     global mySock
     global srcSock
     #global ctlSock
@@ -29,7 +32,7 @@ def startServer():
     global mutexLock
     global gameDataQRcv, gameDataQSnd
     
-    global lastScore
+    global lastScore, imgSnd
 
     mySock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)  
     SOCKNUM = 2
@@ -56,15 +59,22 @@ def startServer():
     t1.start()
     '''
     mutexLock = threading.Lock()
-    t2 = threading.Thread(target=gameDataRcvThread)
-    threads.append(t2)
-    t2.setDaemon(True)
-    t2.start()
-
-    t21 = threading.Thread(target=gameDataSndThread)
-    threads.append(t21)
-    t21.setDaemon(True)
-    t21.start()
+    if not sndOnly:        
+        t2 = threading.Thread(target=gameDataRcvThread)
+        threads.append(t2)
+        t2.setDaemon(True)
+        t2.start()
+        
+        t21 = threading.Thread(target=gameDataSndThread)
+        threads.append(t21)
+        t21.setDaemon(True)
+        t21.start()
+    else:
+        imgSnd = cv.CreateImageHeader((288, 512), cv.IPL_DEPTH_8U, 3)  
+        t21 = threading.Thread(target=gameFrameSndThread)
+        threads.append(t21)
+        t21.setDaemon(True)
+        t21.start()        
 
     t3 = threading.Thread(target=showInforThread)
     threads.append(t3)    
@@ -203,7 +213,40 @@ def gameDataSndThread():
                 ctrlStat = 2
                 mutexLock.release()
                 break
-        
+testImage = 0
+def gameFrameSndThread():
+    global srcSock
+    global gameDataQSnd
+    global ctrlStat
+    global mutexLock, imgSnd
+
+    if srcSock == 0:
+        print "Data Socket Error!"
+        return 1
+    encode_param=[int(cv2.IMWRITE_JPEG_QUALITY),75]
+    while True: 
+        img = gameDataQSnd.get(True, 5) 
+        buff = numpy.fromstring(img, dtype='uint8')
+        cv.SetData(imgSnd, buff)  
+        print buff
+        result, imgencode = cv2.imencode('.jpg', buff, encode_param)
+        data = numpy.array(imgencode)
+        stringData = data.tostring()
+        try:  
+            dataLen = len(stringData)
+            bytes = sndDataFromSocket(srcSock, str(dataLen), 16);
+            bytes += sndDataFromSocket(srcSock, stringData, dataLen);            
+            if bytes == 0:
+                if mutexLock.acquire(1):
+                    ctrlStat = 2
+                    mutexLock.release()            
+                break
+        except KeyboardInterrupt:  
+            print "Interrupted!" 
+            if mutexLock.acquire(1):
+                ctrlStat = 2
+                mutexLock.release() 
+            break
 
 def showInforThread():
     while True:
@@ -243,6 +286,9 @@ def frame_step(input_actions):
     #    mutex.release()    
     #print "c t d", "[",reward,"]", "[",terminal,"]", "[",image_data,"]", 
     return image_data, reward, terminal, False
+
+def frame_snd(imageData):
+    gameDataQSnd.put(imageData)    
 
 def clearGlobalPara():
     global lastScore

@@ -31,7 +31,7 @@ def playFlappyBird():
     brain = BrainDQN(actions)
     #play the game forever
     quitFlag = False
-    gameSocket.startServer()
+    gameSocket.startServer(False)
     while True: 
         #init Flappy Bird Game
         gameSocket.clearGlobalPara()

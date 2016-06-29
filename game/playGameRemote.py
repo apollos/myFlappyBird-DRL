@@ -124,7 +124,7 @@ def main(argv):
                 actions = [0,1]
             else:
                 actions = [1,0]
-            observation, reward, terminal = flappyBird.frame_step(actions)
+            observation, reward, terminal, screenCap = flappyBird.frame_step(actions)
             observation = compressImg(observation)
             saveGameStatus(observation, reward, terminal)
         else:
