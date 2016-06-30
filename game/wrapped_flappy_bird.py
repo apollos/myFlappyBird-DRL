@@ -6,6 +6,7 @@ import flappy_bird_utils
 import pygame.surfarray as surfarray
 from pygame.locals import *
 from itertools import cycle
+import Image
 
 FPS = 30
 SCREENWIDTH  = 288
@@ -147,6 +148,7 @@ class GameState:
         FPSCLOCK.tick(FPS)
         #print self.upperPipes[0]['y'] + PIPE_HEIGHT - int(BASEY * 0.2)
         screen_cap = pygame.image.tostring(pygame.display.get_surface(), 'RGB')
+        #screen_cap = Image.fromstring("RGB", self.surface.get_size(), screen_cap)
         '''
         abc = pygame.image.fromstring(screen_cap, (288,512), 'RGB')
         if self.countWrite <=4:

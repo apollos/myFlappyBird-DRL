@@ -5,7 +5,6 @@
 # -------------------------
 
 import cv2
-import cv2.cv as cv
 import sys
 sys.path.append("game/")
 import wrapped_flappy_bird as game
@@ -34,8 +33,7 @@ def playFlappyBird():
     
     flappyBird = game.GameState()
     gameSocket.startServer(True)
-    cv.NamedWindow("pil2ipl")
-
+    
     while True: 
         #init Flappy Bird Game    
         gameSocket.clearGlobalPara()        

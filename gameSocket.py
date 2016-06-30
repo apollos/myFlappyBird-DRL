@@ -20,8 +20,7 @@ gameDataQSnd = None
 
 lastScore = 0
 olddataLen = 0
-rcvCount =0
-imgSnd = cv.CreateImageHeader((288, 512), cv.IPL_DEPTH_8U, 3)  
+rcvCount =0 
 
 def startServer(sndOnly):
     global mySock
@@ -218,20 +217,22 @@ def gameFrameSndThread():
     global srcSock
     global gameDataQSnd
     global ctrlStat
-    global mutexLock, imgSnd
+    global mutexLock
 
     if srcSock == 0:
         print "Data Socket Error!"
         return 1
+    #imgSnd = cv.CreateImageHeader((288, 512), cv.IPL_DEPTH_8U, 3) 
     encode_param=[int(cv2.IMWRITE_JPEG_QUALITY),75]
     while True: 
         img = gameDataQSnd.get(True, 5) 
-        buff = numpy.fromstring(img, dtype='uint8')
-        cv.SetData(imgSnd, buff)  
-        print buff
+        #opencvImage = cv2.cvtColor(numpy.array(pil_image), cv2.COLOR_RGB2BGR)
+        buff = numpy.fromstring(img,numpy.uint8)
+        buff = buff.reshape(512,288,3)
         result, imgencode = cv2.imencode('.jpg', buff, encode_param)
         data = numpy.array(imgencode)
-        stringData = data.tostring()
+        stringData = data.tostring()        
+ 
         try:  
             dataLen = len(stringData)
             bytes = sndDataFromSocket(srcSock, str(dataLen), 16);

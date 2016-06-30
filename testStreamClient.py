@@ -12,8 +12,8 @@ if __name__ == "__main__":
     PORT = int(sys.argv[2])
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  
     sock.connect((HOST, PORT))        
-    cv.NamedWindow("DetectResult")  
-    img = cv.CreateImageHeader((288, 512), cv.IPL_DEPTH_8U, 3)  
+    cv2.namedWindow("DetectResult")  
+    #img = cv.CreateImageHeader((288, 512), cv.IPL_DEPTH_8U, 3)  
       
     while True:        
         rcvLen = 0
@@ -42,9 +42,9 @@ if __name__ == "__main__":
             break;
         #uncompress
         buff = np.fromstring(DataValue, dtype='uint8')
-        #img = cv2.imdecode(buff, cv2.CV_LOAD_IMAGE_COLOR);
-        cv.SetData(img, buff)  
-        cv.ShowImage("DetectResult", img)         
+        img = cv2.imdecode(buff, cv2.CV_LOAD_IMAGE_COLOR);
+        #cv.SetData(img, buff)  
+        cv2.imshow("DetectResult", img)         
         if cv2.waitKey(10) == 122:  
             break  
       
